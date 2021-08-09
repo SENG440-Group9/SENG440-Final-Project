@@ -109,13 +109,13 @@ double** invertMatrix(double** matrixToInvert) {
 int main(int argc, char *argv[]) {
     FILE *input_file  = fopen(argv[1], "r");
     double** matrix = buildMatrix(input_file);
-    printf("og mat\n");
+    printf("Input Matrix\n");
     printMatrix(matrix);
     double** invertedMatrix = invertMatrix(matrix);
 
-    // printf("og mat inverted\n");
+    // printf("Row reduced input matrix (should be the identity matrix)\n");
     // printMatrix(matrix);
-    printf("\n mats inverse\n");
+    printf("Inverted Matrix\n");
     printMatrix(invertedMatrix);
     fclose(input_file);
 }
