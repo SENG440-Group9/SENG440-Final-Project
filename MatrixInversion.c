@@ -105,7 +105,6 @@ double** invertMatrix(double** matrixToInvert) {
     return invertedMatrix;
 }
 
-/* main.c */
 int main(int argc, char *argv[]) {
     FILE *input_file  = fopen(argv[1], "r");
     char buff[255];
