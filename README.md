@@ -12,5 +12,5 @@ put MatrixInversion.exe
 put matrixFile.txt
 telnet arm
     creds: user1, q6coHjd7P
-chmod +e MatrixInversion.exe
+chmod +x MatrixInversion.exe
 ./MatrixInversion.exe matrixFile.txt
