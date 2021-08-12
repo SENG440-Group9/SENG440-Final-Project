@@ -4,14 +4,13 @@
 #include <string.h>
 #include <math.h>
 
-int matrixSize;
-
 /*
  * Print a matrix
  * input: the matrix to print
  */
-void printMatrix(double** matrix) {
-    int i, j;
+void printMatrix(double** matrix, int matrixSize) {
+    register int i, j;
+
     for (i = 0; i < matrixSize; i++) {
         for (j = 0; j < matrixSize; j++) {
             printf("%f ", matrix[i][j]);
@@ -26,17 +25,16 @@ void printMatrix(double** matrix) {
  * input: a file containing a matrix
  * output: the matrix as a 2d array of doubles
  */
-void buildMatrix(FILE *input_file, double ** matrix ) {
-    int i, j;
+void buildMatrix(FILE *input_file, double ** matrix, int matrixSize ) {
+    register int i, j;
+    char buff[255];
+    char * token;
+    char *eptr;
     if (input_file == NULL) 
     {   
         printf("Error! Could not open file\n"); 
         exit(-1);
     } 
-
-    char buff[255];
-    char * token;
-    char *eptr;
 
     for(i = 0; i < matrixSize; i++) {
         fgets(buff, 255, (FILE*)input_file);
@@ -55,8 +53,8 @@ void buildMatrix(FILE *input_file, double ** matrix ) {
  * Generates an identity matrix of matrixSize
  * output: the identity matrix
  */
-void generateIdentityMatrix(double **identityMatrix) {
-    int i, j;
+void generateIdentityMatrix(double **identityMatrix, int matrixSize) {
+    register int i, j;
     for(i = 0; i < matrixSize; i++) {
         for(j = 0; j < matrixSize; j++) {
             if (i == j) {
@@ -75,8 +73,8 @@ void generateIdentityMatrix(double **identityMatrix) {
  * input: row that will be divided, how much to divide that row
  * output: the row post division
  */
-double* divideRow(double timesToDivide, double* rowToDivide) {
-    int col;
+double* divideRow(double timesToDivide, double* rowToDivide, int matrixSize) {
+    register int col;
     for(col = 0; col < matrixSize; col++) {
         rowToDivide[col] /= timesToDivide;
     }
@@ -88,8 +86,8 @@ double* divideRow(double timesToDivide, double* rowToDivide) {
  * input: row that will be reduced, row to reduce it with, multiple of the reducing row
  * output: the row post subtraction
  */
-double* subtractRowTimes(double timesToSubtract, double* rowToReduce, double* reducingRow) {
-    int col;
+double* subtractRowTimes(double timesToSubtract, double* restrict rowToReduce, double* restrict reducingRow, int matrixSize) {
+    register int col;
     for(col = 0; col < matrixSize; col++) {
         rowToReduce[col] -= timesToSubtract * reducingRow[col];
     }
@@ -101,10 +99,10 @@ double* subtractRowTimes(double timesToSubtract, double* rowToReduce, double* re
  * input: matrix to search, index to start looking at
  * output: the index of the max value
  */
-int getSwapRow(double** matrix, int diagIndex) {
+int getSwapRow(double** matrix, int diagIndex, int matrixSize) {
+    register int row;
     double maxVal = 0;
     int maxIndex = 0;
-    int row;
     for(row = diagIndex; row < matrixSize; row++) {
         if(abs(matrix[row][diagIndex]) > maxVal) {
             maxVal = abs(matrix[row][diagIndex]);
@@ -119,11 +117,11 @@ int getSwapRow(double** matrix, int diagIndex) {
  * input: matrix to invert
  * output: the matrix's inverse
  */
-int invertMatrix(double** matrixToInvert, double **invertedMatrix ) {
-    generateIdentityMatrix(invertedMatrix);
+int invertMatrix(double** matrixToInvert, double **invertedMatrix, int matrixSize ) {
+    generateIdentityMatrix(invertedMatrix, matrixSize);
+    register int highestIndex, row;
     double divideRowBy, timesToSubtract;
     int swappingIndex;
-    int highestIndex, row;
 
     for(highestIndex = 0; highestIndex < matrixSize; highestIndex++) {
         divideRowBy = matrixToInvert[highestIndex][highestIndex];
@@ -131,7 +129,7 @@ int invertMatrix(double** matrixToInvert, double **invertedMatrix ) {
         // This if statement contains the pivoting steps
         if(divideRowBy == 0) {
             double* tempRow;
-            swappingIndex = getSwapRow(matrixToInvert, highestIndex);
+            swappingIndex = getSwapRow(matrixToInvert, highestIndex, matrixSize);
             if(swappingIndex == 0) {
                 printf("Error! Matrix is not invertable. There is no usable value to pivot in column %d\n", highestIndex);
                 return 0;
@@ -145,16 +143,16 @@ int invertMatrix(double** matrixToInvert, double **invertedMatrix ) {
             invertedMatrix[swappingIndex] = tempRow;
             divideRowBy = matrixToInvert[highestIndex][highestIndex];
         }
-        invertedMatrix[highestIndex] = divideRow(divideRowBy, invertedMatrix[highestIndex]);
-        matrixToInvert[highestIndex] = divideRow(divideRowBy, matrixToInvert[highestIndex]);
+        invertedMatrix[highestIndex] = divideRow(divideRowBy, invertedMatrix[highestIndex], matrixSize);
+        matrixToInvert[highestIndex] = divideRow(divideRowBy, matrixToInvert[highestIndex], matrixSize);
 
         for(row = 0; row < matrixSize; row++) {
             if (highestIndex == row) {
                 continue;
             }
             timesToSubtract = matrixToInvert[row][highestIndex];
-            invertedMatrix[row] = subtractRowTimes(timesToSubtract, invertedMatrix[row], invertedMatrix[highestIndex]);
-            matrixToInvert[row] = subtractRowTimes(timesToSubtract, matrixToInvert[row], matrixToInvert[highestIndex]);
+            invertedMatrix[row] = subtractRowTimes(timesToSubtract, invertedMatrix[row], invertedMatrix[highestIndex], matrixSize);
+            matrixToInvert[row] = subtractRowTimes(timesToSubtract, matrixToInvert[row], matrixToInvert[highestIndex], matrixSize);
         }
 
     }
@@ -162,8 +160,8 @@ int invertMatrix(double** matrixToInvert, double **invertedMatrix ) {
     return 1;
 }
 
-double computeConditionNumber(double** matrix) {
-    int i, j;
+double computeConditionNumber(double** matrix, int matrixSize) {
+    register int i, j;
 	double norm = 0.0;
     double rowSum;
 	for (i=0; i<matrixSize; i++) {
@@ -187,15 +185,15 @@ int main(int argc, char *argv[]) {
     }
     FILE *input_file  = fopen(argv[1], "r");
     char buff[255];
-    matrixSize = atoi(fgets(buff, 255, (FILE*)input_file));
+    int matrixSize = atoi(fgets(buff, 255, (FILE*)input_file));
     printf(" Matrix size = %d, argc: %d\n", matrixSize, argc ) ;
     // matrixSize = atoi(argv[2]);
     double ** matrix = malloc(matrixSize*sizeof(double*));
     for(i=0; i<matrixSize; i++)
         *(matrix+i) = (double*)malloc(sizeof(double)*matrixSize);
 
-    buildMatrix(input_file, matrix);
-    double conditionNum  = computeConditionNumber(matrix);
+    buildMatrix(input_file, matrix, matrixSize);
+    double conditionNum  = computeConditionNumber(matrix, matrixSize);
 
     printf("Condition number of the matrix: %f\n", conditionNum);
     if (conditionNum >= 25.00) {
@@ -206,21 +204,21 @@ int main(int argc, char *argv[]) {
     }
 
     printf("Input Matrix\n");
-    printMatrix(matrix);
+    printMatrix(matrix, matrixSize);
 
     double ** invertedMatrix = malloc(matrixSize*sizeof(double*));
     for(i=0; i<matrixSize; i++)
         *(invertedMatrix+i) = (double*)malloc(sizeof(double)*matrixSize);
-    int x = invertMatrix(matrix, invertedMatrix);
+    int x = invertMatrix(matrix, invertedMatrix, matrixSize);
     if (x == 0) {
         printf("Matrix inversion failed\n");
         return 0;
     }
 
     // printf("Row reduced input matrix (should be the identity matrix)\n");
-    // printMatrix(matrix);
+    // printMatrix(matrix, matrixSize);
     printf("Inverted Matrix\n");
-    printMatrix(invertedMatrix);
+    printMatrix(invertedMatrix, matrixSize);
     fclose(input_file);
     free(matrix);
     free(invertedMatrix);
