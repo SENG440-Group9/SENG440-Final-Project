@@ -188,6 +188,8 @@ int main(int argc, char *argv[]) {
     double conditionNum  = computeConditionNumber(matrix);
 
     if (conditionNum >= 32.00) {
+	    fclose(input_file);
+	    free(matrix);
 	    printf("Input matix is not well-conditioned. Exiting program.\n");
 	    return -1;
     }
