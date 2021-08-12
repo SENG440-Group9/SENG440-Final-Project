@@ -41,7 +41,7 @@ void buildMatrix(FILE *input_file, double ** matrix ) {
     for(i = 0; i < matrixSize; i++) {
         fgets(buff, 255, (FILE*)input_file);
         token = strtok(buff, " ");
-        if ( token == NULL ) printf(" Null token\n");
+        if ( token == '\0' ) printf(" Null token\n");
         for(j = 0; j < matrixSize; j++) {
             matrix[i][j] = strtod(token, &eptr);
             token = strtok(NULL, " ");
