@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <math.h>
 
 int matrixSize;
 
@@ -163,14 +164,40 @@ double** invertMatrix(double** matrixToInvert) {
     return invertedMatrix;
 }
 
+double computeConditionNumber(double** matrix) {
+	double norm = 0.0;
+	for (int i=0; i<matrixSize; i++) {
+		double rowSum = 0.0;
+		for (int j=0; j<matrixSize; j++) {
+			rowSum += fabs(matrix[i][j]);
+		}
+		if (norm < rowSum) {
+			norm = rowSum;
+		}
+	}
+	return norm;
+}
+
+/* main.c */
 int main(int argc, char *argv[]) {
     FILE *input_file  = fopen(argv[1], "r");
     char buff[255];
     matrixSize = atoi(fgets(buff, 255, (FILE*)input_file));
     // matrixSize = atoi(argv[2]);
     double** matrix = buildMatrix(input_file);
+    double conditionNum  = computeConditionNumber(matrix);
+
+    if (conditionNum >= 32.00) {
+	    fclose(input_file);
+	    free(matrix);
+	    printf("Input matix is not well-conditioned. Exiting program.\n");
+	    return -1;
+    }
+
     printf("Input Matrix\n");
     printMatrix(matrix);
+    printf("Condition number of the matrix: %f\n", conditionNum);
+
     double** invertedMatrix = invertMatrix(matrix);
     if (invertedMatrix == 0) {
         printf("Matrix inversion failed\n");
