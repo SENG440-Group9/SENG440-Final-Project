@@ -6,6 +6,10 @@
 
 int matrixSize;
 
+/*
+ * Print a matrix
+ * input: the matrix to print
+ */
 void printMatrix(double** matrix) {
     for (int i = 0; i < matrixSize; i++) {
         for (int j = 0; j < matrixSize; j++) {
@@ -13,8 +17,14 @@ void printMatrix(double** matrix) {
         }
         printf("\n");
     }
+    return;
 }
 
+/*
+ * Builds a matrix from an input file
+ * input: a file containing a matrix
+ * output: the matrix as a 2d array of doubles
+ */
 double** buildMatrix(FILE *input_file) {
     double** matrix = malloc(matrixSize*sizeof(double*));
 
@@ -22,7 +32,6 @@ double** buildMatrix(FILE *input_file) {
         matrix[i] = malloc(sizeof(double*) * matrixSize); 
     } 
 
-    // test for bad file
     if (input_file == NULL) 
     {   
         printf("Error! Could not open file\n"); 
@@ -44,6 +53,10 @@ double** buildMatrix(FILE *input_file) {
     return matrix;
 }
 
+/*
+ * Generates an identity matrix of matrixSize
+ * output: the identity matrix
+ */
 double** generateIdentityMatrix() {
     double** identityMatrix = malloc(matrixSize*sizeof(double*));
     for(int i = 0; i < matrixSize; i++) { 
@@ -63,6 +76,11 @@ double** generateIdentityMatrix() {
     return identityMatrix;
 }
 
+/*
+ * Division step
+ * input: row that will be divided, how much to divide that row
+ * output: the row post division
+ */
 double* divideRow(double timesToDivide, double* rowToDivide) {
     for(int col = 0; col < matrixSize; col++) {
         rowToDivide[col] /= timesToDivide;
@@ -70,6 +88,11 @@ double* divideRow(double timesToDivide, double* rowToDivide) {
     return rowToDivide;
 }
 
+/*
+ * Subtraction step
+ * input: row that will be reduced, row to reduce it with, multiple of the reducing row
+ * output: the row post subtraction
+ */
 double* subtractRowTimes(double timesToSubtract, double* rowToReduce, double* reducingRow) {
     for(int col = 0; col < matrixSize; col++) {
         rowToReduce[col] -= timesToSubtract * reducingRow[col];
@@ -77,17 +100,52 @@ double* subtractRowTimes(double timesToSubtract, double* rowToReduce, double* re
     return rowToReduce;
 }
 
+/*
+ * Get the index of the highest absolute value in the column, to use later to swap it with the [diagIndex] row
+ * input: matrix to search, index to start looking at
+ * output: the index of the max value
+ */
+int getSwapRow(double** matrix, int diagIndex) {
+    double maxVal = 0;
+    int maxIndex = 0;
+    for(int row = diagIndex; row < matrixSize; row++) {
+        if(abs(matrix[row][diagIndex]) > maxVal) {
+            maxVal = abs(matrix[row][diagIndex]);
+            maxIndex = row;
+        }
+    }
+    return maxIndex;
+}
+
+/*
+ * Invert the matrix
+ * input: matrix to invert
+ * output: the matrix's inverse
+ */
 double** invertMatrix(double** matrixToInvert) {
     double** invertedMatrix = generateIdentityMatrix();
     double divideRowBy, timesToSubtract;
+    int swappingIndex;
 
     for(int highestIndex = 0; highestIndex < matrixSize; highestIndex++) {
-
         divideRowBy = matrixToInvert[highestIndex][highestIndex];
-        if(divideRowBy == 0){
-            printf("Error! Tried to divide by 0 at index %d\n", highestIndex);
-            printMatrix(matrixToInvert);
-            return 0;
+
+        // This if statement contains the pivoting steps
+        if(divideRowBy == 0) {
+            double* tempRow;
+            swappingIndex = getSwapRow(matrixToInvert, highestIndex);
+            if(swappingIndex == 0) {
+                printf("Error! Matrix is not invertable. There is no usable value to pivot in column %d\n", highestIndex);
+                return 0;
+            }
+            // Swapping the rows
+            tempRow = matrixToInvert[highestIndex];
+            matrixToInvert[highestIndex] = matrixToInvert[swappingIndex];
+            matrixToInvert[swappingIndex] = tempRow;
+            tempRow = invertedMatrix[highestIndex];
+            invertedMatrix[highestIndex] = invertedMatrix[swappingIndex];
+            invertedMatrix[swappingIndex] = tempRow;
+            divideRowBy = matrixToInvert[highestIndex][highestIndex];
         }
         invertedMatrix[highestIndex] = divideRow(divideRowBy, invertedMatrix[highestIndex]);
         matrixToInvert[highestIndex] = divideRow(divideRowBy, matrixToInvert[highestIndex]);
@@ -139,10 +197,16 @@ int main(int argc, char *argv[]) {
     printf("Condition number of the matrix: %f\n", conditionNum);
 
     double** invertedMatrix = invertMatrix(matrix);
+    if (invertedMatrix == 0) {
+        printf("Matrix inversion failed\n");
+        return 0;
+    }
 
     // printf("Row reduced input matrix (should be the identity matrix)\n");
     // printMatrix(matrix);
     printf("Inverted Matrix\n");
     printMatrix(invertedMatrix);
     fclose(input_file);
+    free(matrix);
+    free(invertedMatrix);
 }
