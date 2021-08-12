@@ -187,7 +187,8 @@ int main(int argc, char *argv[]) {
     double** matrix = buildMatrix(input_file);
     double conditionNum  = computeConditionNumber(matrix);
 
-    if (conditionNum >= 32.00) {
+    printf("Condition number of the matrix: %f\n", conditionNum);
+    if (conditionNum >= 25.00) {
 	    fclose(input_file);
 	    free(matrix);
 	    printf("Input matix is not well-conditioned. Exiting program.\n");
@@ -196,7 +197,6 @@ int main(int argc, char *argv[]) {
 
     printf("Input Matrix\n");
     printMatrix(matrix);
-    printf("Condition number of the matrix: %f\n", conditionNum);
 
     double** invertedMatrix = invertMatrix(matrix);
     if (invertedMatrix == 0) {
