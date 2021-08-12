@@ -4,44 +4,77 @@
 #include <string.h>
 #include <math.h>
 
+#define FIXED_POINT_FRACTIONAL_BITS 18
+
+typedef int fixed_int_t;
+
+double fixedToFloat(fixed_int_t fixedVal) {
+    return ((double)fixedVal / (double)(1 << FIXED_POINT_FRACTIONAL_BITS));
+}
+
+fixed_int_t floatToFixed(int floatVal) {
+    return (fixed_int_t)(floatVal * (1 << FIXED_POINT_FRACTIONAL_BITS));
+}
+
+// fixed_int_t longIntToFixed(long int longVal) {
+//     int temp = longVal * (1 >> FIXED_POINT_FRACTIONAL_BITS);
+//     return (fixed_int_t)(longVal >> FIXED_POINT_FRACTIONAL_BITS);
+// }
+
 /*
  * Print a matrix
  * input: the matrix to print
  */
-void printMatrix(double** matrix, register short int matrixSize) {
-    register short int i, j;
-
-    for (i = 0; i < matrixSize; i++) {
-        for (j = 0; j < matrixSize; j++) {
-            printf("%f ", matrix[i][j]);
+void printMatrix(fixed_int_t** matrix, register short int matrixSize) {
+    register short int row, col;
+    printf("\nfloats\n");
+    for (row = 0; row < matrixSize; row++) {
+        for (col = 0; col < matrixSize; col++) {
+            printf("%f ", fixedToFloat(matrix[row][col])); 
         }
         printf("\n");
     }
+    printf("\nFixed\n");
+    for (row = 0; row < matrixSize; row++) {
+        for (col = 0; col < matrixSize; col++) {
+            printf("%d ", matrix[row][col]);
+        }
+        printf("\n\n");
+    }
+    return;
+}
+
+void printRow(fixed_int_t* row) {
+    printf("\nReal matrix\n");
+    for (i = 0; i < matrixSize; i++) {
+        printf("%f ", fixedToFloat(row[i])); 
+    }
+    printf("\n");
     return;
 }
 
 /*
  * Builds a matrix from an input file
- * input: a file containing a matrix
- * output: the matrix as a 2d array of doubles
+ * input: a file containing a matrix 
  */
-void buildMatrix(FILE *input_file, double ** matrix, register short int matrixSize ) {
-    register short int i, j;
+void buildMatrix(FILE *input_file, double ** matrix, register short int matrixSize) {
+    register short int row, col;
     char buff[255];
     char * token;
     char *eptr;
+
     if (input_file == NULL) 
     {   
         printf("Error! Could not open file\n"); 
         exit(-1);
     } 
 
-    for(i = 0; i < matrixSize; i++) {
+    for(row = 0; row < matrixSize; row++) {
         fgets(buff, 255, (FILE*)input_file);
         token = strtok(buff, " ");
         if ( token == NULL ) printf(" Null token\n");
-        for(j = 0; j < matrixSize; j++) {
-            matrix[i][j] = strtod(token, &eptr);
+        for(col = 0; col < matrixSize; col++) {
+            matrix[row][col] = floatToFixed(strtod(token, &eptr));
             token = strtok(NULL, " ");
         }
     }
@@ -55,16 +88,16 @@ void buildMatrix(FILE *input_file, double ** matrix, register short int matrixSi
  */
 void generateIdentityMatrix(double **identityMatrix, register short int matrixSize) {
     register short int row, col;
+    
     for(row = 0; row < matrixSize; row++) {
         for(col = 0; col < matrixSize; col++) {
             if (row == col) {
-                identityMatrix[row][col] = 1.0;
+                identityMatrix[row][col] = floatToFixed(1.0);
             } else {
-                identityMatrix[row][col] = 0.0;
+                identityMatrix[row][col] = floatToFixed(0.0);
             }
         }
     }
-
     return;
 }
 
@@ -73,11 +106,14 @@ void generateIdentityMatrix(double **identityMatrix, register short int matrixSi
  * input: row that will be divided, how much to divide that row
  * output: the row post division
  */
-double* divideRow(double divisor, double* rowToDivide, register short int matrixSize) {
+fixed_int_t* divideRow(fixed_int_t divisor, fixed_int_t* rowToDivide, register short int matrixSize) {
     register short int col;
-    double inverseDivisor = 1 / divisor;
+    long int longTransferVariable = 0;
+    fixed_int_t dividingVar = 0;
     for(col = 0; col < matrixSize; col++) {
-        rowToDivide[col] *= inverseDivisor;
+        dividingVar = rowToDivide[col];
+        rowToDivide[col] = (fixed_int_t)((long)(rowToDivide[col] * (1 << FIXED_POINT_FRACTIONAL_BITS)) / divisor);
+        longTransferVariable = rowToDivide[col];
     }
     return rowToDivide;
 }
@@ -87,10 +123,13 @@ double* divideRow(double divisor, double* rowToDivide, register short int matrix
  * input: row that will be reduced, row to reduce it with, multiple of the reducing row
  * output: the row post subtraction
  */
-double* subtractRowTimes(register double timesToSubtract, double* rowToReduce, double* reducingRow, register short int matrixSize) {
+fixed_int_t* subtractRowTimes(fixed_int_t timesToSubtract, fixed_int_t* rowToReduce, fixed_int_t* reducingRow, register short int matrixSize) {
     register short int col;
+    long int longTransferVariable = 0;
+    fixed_int_t dividingVar, dividedVar;
     for(col = 0; col < matrixSize; col++) {
-        rowToReduce[col] -= timesToSubtract * reducingRow[col];
+        longTransferVariable = (long int)(timesToSubtract * reducingRow[col]) >> FIXED_POINT_FRACTIONAL_BITS;
+        rowToReduce[col] -= (fixed_int_t)longTransferVariable;
     }
     return rowToReduce;
 }
@@ -100,10 +139,10 @@ double* subtractRowTimes(register double timesToSubtract, double* rowToReduce, d
  * input: matrix to search, index to start looking at
  * output: the index of the max value
  */
-int getSwapRow(double** matrix, short int col, register short int matrixSize) {
+int getSwapRow(fixed_int_t** matrix, short int col, register short int matrixSize) {
     register short int row;
-    short int maxIndex = 0;
-    double maxVal = 0;
+    fixed_int_t maxVal = 0;
+    int maxIndex = 0;
     for(row = col; row < matrixSize; row++) {
         if(abs(matrix[row][col]) > maxVal) {
             maxVal = abs(matrix[row][col]);
@@ -118,22 +157,22 @@ int getSwapRow(double** matrix, short int col, register short int matrixSize) {
  * input: matrix to invert
  * output: the matrix's inverse
  */
-int invertMatrix(double** inputMatrix, double** outputMatrix, register short int matrixSize ) {
+int invertMatrix(fixed_int_t** inputMatrix, fixed_int_t** outputMatrix, register short int matrixSize) {
     generateIdentityMatrix(outputMatrix, matrixSize);
     register short int outerRow, innerRow;
-    double divideRowBy, timesToSubtract;
-    short int indexToSwap;
+    fixed_int_t divideRowBy, timesToSubtract;
+    int indexToSwap;
 
     for(outerRow = 0; outerRow < matrixSize; outerRow++) {
         divideRowBy = inputMatrix[outerRow][outerRow];
 
         // This if statement contains the pivoting steps
         if(divideRowBy == 0) {
-            double* tempRow;
+            fixed_int_t* tempRow;
             indexToSwap = getSwapRow(inputMatrix, outerRow, matrixSize);
             if(indexToSwap == 0) {
                 printf("Error! Matrix is not invertable. There is no usable value to pivot in column %d\n", outerRow);
-                return 0;
+                exit(-1);
             }
             // Swapping the rows
             tempRow = inputMatrix[outerRow];
@@ -151,9 +190,14 @@ int invertMatrix(double** inputMatrix, double** outputMatrix, register short int
             if (outerRow == innerRow) {
                 continue;
             }
+            // printf("\n\n----------------------\n Stubracting\n");
+            // printf("inputMatrix\n");
+            // printMatrix(inputMatrix);
+            // printf("\n\noutputMatrix\n");
+            // printMatrix(outputMatrix);
             timesToSubtract = inputMatrix[innerRow][outerRow];
-            outputMatrix[innerRow] = subtractRowTimes(timesToSubtract, outputMatrix[innerRow], outputMatrix[outerRow], matrixSize);
             inputMatrix[innerRow] = subtractRowTimes(timesToSubtract, inputMatrix[innerRow], inputMatrix[outerRow], matrixSize);
+            outputMatrix[innerRow] = subtractRowTimes(timesToSubtract, outputMatrix[innerRow], outputMatrix[outerRow], matrixSize);
         }
 
     }
@@ -162,13 +206,13 @@ int invertMatrix(double** inputMatrix, double** outputMatrix, register short int
 }
 
 double computeConditionNumber(double** matrix, register short int matrixSize) {
-    register short int i, j;
+    register short int row, col;
 	double norm = 0.0;
     double rowSum;
-	for (i=0; i<matrixSize; i++) {
+	for (row=0; row<matrixSize; row++) {
 		rowSum = 0.0;
-		for (j=0; j<matrixSize; j++) {
-			rowSum += fabs(matrix[i][j]);
+		for (col=0; col<matrixSize; col++) {
+			rowSum += fabs(matrix[row][col]);
 		}
 		if (norm < rowSum) {
 			norm = rowSum;
@@ -177,24 +221,25 @@ double computeConditionNumber(double** matrix, register short int matrixSize) {
 	return norm;
 }
 
-/* main.c */
 int main(int argc, char *argv[]) {
-    int i;
+    register short int i;
+    char buff[255];
+    short int matrixSize;
+    double conditionNum;
+
     if ( argc != 2 ) {
         printf("Error, need input filename.\n");
         return -1;
     }
     FILE *input_file  = fopen(argv[1], "r");
-    char buff[255];
-    short int matrixSize = atoi(fgets(buff, 255, (FILE*)input_file));
-    printf(" Matrix size = %d, argc: %d\n", matrixSize, argc ) ;
-    // matrixSize = atoi(argv[2]);
-    double ** matrix = malloc(matrixSize*sizeof(double*));
-    for(i=0; i<matrixSize; i++)
-        *(matrix+i) = (double*)malloc(sizeof(double)*matrixSize);
-
+    matrixSize = atoi(fgets(buff, 255, (FILE*)input_file));
+    printf(" Matrix size = %d, argc: %d\n", matrixSize, argc);
+    fixed_int_t** matrix = malloc(matrixSize*sizeof(fixed_int_t*));
+    for(i = 0; i < matrixSize; i++)
+        *(matrix+i) = (fixed_int_t*)malloc(sizeof(fixed_int_t)*matrixSize);
     buildMatrix(input_file, matrix, matrixSize);
-    double conditionNum  = computeConditionNumber(matrix, matrixSize);
+
+    conditionNum  = computeConditionNumber(matrix, matrixSize);
 
     printf("Condition number of the matrix: %f\n", conditionNum);
     if (conditionNum >= 25.00) {
@@ -203,24 +248,18 @@ int main(int argc, char *argv[]) {
 	    printf("Input matix is not well-conditioned. Exiting program.\n");
 	    return -1;
     }
-
     printf("Input Matrix\n");
     printMatrix(matrix, matrixSize);
-
-    double ** invertedMatrix = malloc(matrixSize*sizeof(double*));
+    fixed_int_t** outputMatrix = malloc(matrixSize*sizeof(fixed_int_t*));
     for(i=0; i<matrixSize; i++)
-        *(invertedMatrix+i) = (double*)malloc(sizeof(double)*matrixSize);
-    int x = invertMatrix(matrix, invertedMatrix, matrixSize);
-    if (x == 0) {
-        printf("Matrix inversion failed\n");
-        return 0;
-    }
+        *(outputMatrix+i) = (fixed_int_t*)malloc(sizeof(fixed_int_t)*matrixSize);
+    invertMatrix(matrix, outputMatrix, matrixSize);
 
     // printf("Row reduced input matrix (should be the identity matrix)\n");
     // printMatrix(matrix, matrixSize);
     printf("Inverted Matrix\n");
-    printMatrix(invertedMatrix, matrixSize);
+    printMatrix(outputMatrix, matrixSize);
     fclose(input_file);
     free(matrix);
-    free(invertedMatrix);
+    free(outputMatrix);
 }
