@@ -8,7 +8,7 @@
  * Print a matrix
  * input: the matrix to print
  */
-void printMatrix(double** matrix, int matrixSize) {
+void printMatrix(double** matrix, register int matrixSize) {
     register int i, j;
 
     for (i = 0; i < matrixSize; i++) {
@@ -25,7 +25,7 @@ void printMatrix(double** matrix, int matrixSize) {
  * input: a file containing a matrix
  * output: the matrix as a 2d array of doubles
  */
-void buildMatrix(FILE *input_file, double ** matrix, int matrixSize ) {
+void buildMatrix(FILE *input_file, double ** matrix, register int matrixSize ) {
     register int i, j;
     char buff[255];
     char * token;
@@ -53,14 +53,14 @@ void buildMatrix(FILE *input_file, double ** matrix, int matrixSize ) {
  * Generates an identity matrix of matrixSize
  * output: the identity matrix
  */
-void generateIdentityMatrix(double **identityMatrix, int matrixSize) {
-    register int i, j;
-    for(i = 0; i < matrixSize; i++) {
-        for(j = 0; j < matrixSize; j++) {
-            if (i == j) {
-                identityMatrix[i][j] = 1.0;
+void generateIdentityMatrix(double **identityMatrix, register int matrixSize) {
+    register int row, col;
+    for(row = 0; row < matrixSize; row++) {
+        for(col = 0; col < matrixSize; col++) {
+            if (row == col) {
+                identityMatrix[row][col] = 1.0;
             } else {
-                identityMatrix[i][j] = 0.0;
+                identityMatrix[row][col] = 0.0;
             }
         }
     }
@@ -73,10 +73,10 @@ void generateIdentityMatrix(double **identityMatrix, int matrixSize) {
  * input: row that will be divided, how much to divide that row
  * output: the row post division
  */
-double* divideRow(double timesToDivide, double* rowToDivide, int matrixSize) {
+double* divideRow(double divisor, double* rowToDivide, register int matrixSize) {
     register int col;
     for(col = 0; col < matrixSize; col++) {
-        rowToDivide[col] /= timesToDivide;
+        rowToDivide[col] /= divisor;
     }
     return rowToDivide;
 }
@@ -86,7 +86,7 @@ double* divideRow(double timesToDivide, double* rowToDivide, int matrixSize) {
  * input: row that will be reduced, row to reduce it with, multiple of the reducing row
  * output: the row post subtraction
  */
-double* subtractRowTimes(double timesToSubtract, double* restrict rowToReduce, double* restrict reducingRow, int matrixSize) {
+double* subtractRowTimes(register double timesToSubtract, double* restrict rowToReduce, double* restrict reducingRow, register int matrixSize) {
     register int col;
     for(col = 0; col < matrixSize; col++) {
         rowToReduce[col] -= timesToSubtract * reducingRow[col];
@@ -99,13 +99,13 @@ double* subtractRowTimes(double timesToSubtract, double* restrict rowToReduce, d
  * input: matrix to search, index to start looking at
  * output: the index of the max value
  */
-int getSwapRow(double** matrix, int diagIndex, int matrixSize) {
+int getSwapRow(double** matrix, int col, register int matrixSize) {
     register int row;
     double maxVal = 0;
     int maxIndex = 0;
-    for(row = diagIndex; row < matrixSize; row++) {
-        if(abs(matrix[row][diagIndex]) > maxVal) {
-            maxVal = abs(matrix[row][diagIndex]);
+    for(row = col; row < matrixSize; row++) {
+        if(abs(matrix[row][col]) > maxVal) {
+            maxVal = abs(matrix[row][col]);
             maxIndex = row;
         }
     }
@@ -117,42 +117,42 @@ int getSwapRow(double** matrix, int diagIndex, int matrixSize) {
  * input: matrix to invert
  * output: the matrix's inverse
  */
-int invertMatrix(double** matrixToInvert, double **invertedMatrix, int matrixSize ) {
-    generateIdentityMatrix(invertedMatrix, matrixSize);
-    register int highestIndex, row;
+int invertMatrix(double** inputMatrix, double **outputMatrix, register int matrixSize ) {
+    generateIdentityMatrix(outputMatrix, matrixSize);
+    register int outerRow, innerRow;
     double divideRowBy, timesToSubtract;
-    int swappingIndex;
+    int indexToSwap;
 
-    for(highestIndex = 0; highestIndex < matrixSize; highestIndex++) {
-        divideRowBy = matrixToInvert[highestIndex][highestIndex];
+    for(outerRow = 0; outerRow < matrixSize; outerRow++) {
+        divideRowBy = inputMatrix[outerRow][outerRow];
 
         // This if statement contains the pivoting steps
         if(divideRowBy == 0) {
             double* tempRow;
-            swappingIndex = getSwapRow(matrixToInvert, highestIndex, matrixSize);
-            if(swappingIndex == 0) {
-                printf("Error! Matrix is not invertable. There is no usable value to pivot in column %d\n", highestIndex);
+            indexToSwap = getSwapRow(inputMatrix, outerRow, matrixSize);
+            if(indexToSwap == 0) {
+                printf("Error! Matrix is not invertable. There is no usable value to pivot in column %d\n", outerRow);
                 return 0;
             }
             // Swapping the rows
-            tempRow = matrixToInvert[highestIndex];
-            matrixToInvert[highestIndex] = matrixToInvert[swappingIndex];
-            matrixToInvert[swappingIndex] = tempRow;
-            tempRow = invertedMatrix[highestIndex];
-            invertedMatrix[highestIndex] = invertedMatrix[swappingIndex];
-            invertedMatrix[swappingIndex] = tempRow;
-            divideRowBy = matrixToInvert[highestIndex][highestIndex];
+            tempRow = inputMatrix[outerRow];
+            inputMatrix[outerRow] = inputMatrix[indexToSwap];
+            inputMatrix[indexToSwap] = tempRow;
+            tempRow = outputMatrix[outerRow];
+            outputMatrix[outerRow] = outputMatrix[indexToSwap];
+            outputMatrix[indexToSwap] = tempRow;
+            divideRowBy = inputMatrix[outerRow][outerRow];
         }
-        invertedMatrix[highestIndex] = divideRow(divideRowBy, invertedMatrix[highestIndex], matrixSize);
-        matrixToInvert[highestIndex] = divideRow(divideRowBy, matrixToInvert[highestIndex], matrixSize);
+        outputMatrix[outerRow] = divideRow(divideRowBy, outputMatrix[outerRow], matrixSize);
+        inputMatrix[outerRow] = divideRow(divideRowBy, inputMatrix[outerRow], matrixSize);
 
-        for(row = 0; row < matrixSize; row++) {
-            if (highestIndex == row) {
+        for(innerRow = 0; innerRow < matrixSize; innerRow++) {
+            if (outerRow == innerRow) {
                 continue;
             }
-            timesToSubtract = matrixToInvert[row][highestIndex];
-            invertedMatrix[row] = subtractRowTimes(timesToSubtract, invertedMatrix[row], invertedMatrix[highestIndex], matrixSize);
-            matrixToInvert[row] = subtractRowTimes(timesToSubtract, matrixToInvert[row], matrixToInvert[highestIndex], matrixSize);
+            timesToSubtract = inputMatrix[innerRow][outerRow];
+            outputMatrix[innerRow] = subtractRowTimes(timesToSubtract, outputMatrix[innerRow], outputMatrix[outerRow], matrixSize);
+            inputMatrix[innerRow] = subtractRowTimes(timesToSubtract, inputMatrix[innerRow], inputMatrix[outerRow], matrixSize);
         }
 
     }
@@ -160,7 +160,7 @@ int invertMatrix(double** matrixToInvert, double **invertedMatrix, int matrixSiz
     return 1;
 }
 
-double computeConditionNumber(double** matrix, int matrixSize) {
+double computeConditionNumber(double** matrix, register int matrixSize) {
     register int i, j;
 	double norm = 0.0;
     double rowSum;
