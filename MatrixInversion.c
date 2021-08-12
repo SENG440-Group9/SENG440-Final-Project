@@ -75,8 +75,9 @@ void generateIdentityMatrix(double **identityMatrix, register int matrixSize) {
  */
 double* divideRow(double divisor, double* rowToDivide, register int matrixSize) {
     register int col;
+    double inverseDivisor = 1 / divisor;
     for(col = 0; col < matrixSize; col++) {
-        rowToDivide[col] /= divisor;
+        rowToDivide[col] *= inverseDivisor;
     }
     return rowToDivide;
 }
