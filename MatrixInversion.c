@@ -8,8 +8,8 @@
  * Print a matrix
  * input: the matrix to print
  */
-void printMatrix(double** matrix, register int matrixSize) {
-    register int i, j;
+void printMatrix(double** matrix, register short int matrixSize) {
+    register short int i, j;
 
     for (i = 0; i < matrixSize; i++) {
         for (j = 0; j < matrixSize; j++) {
@@ -25,8 +25,8 @@ void printMatrix(double** matrix, register int matrixSize) {
  * input: a file containing a matrix
  * output: the matrix as a 2d array of doubles
  */
-void buildMatrix(FILE *input_file, double ** matrix, register int matrixSize ) {
-    register int i, j;
+void buildMatrix(FILE *input_file, double ** matrix, register short int matrixSize ) {
+    register short int i, j;
     char buff[255];
     char * token;
     char *eptr;
@@ -39,7 +39,7 @@ void buildMatrix(FILE *input_file, double ** matrix, register int matrixSize ) {
     for(i = 0; i < matrixSize; i++) {
         fgets(buff, 255, (FILE*)input_file);
         token = strtok(buff, " ");
-        if ( token == '\0' ) printf(" Null token\n");
+        if ( token == NULL ) printf(" Null token\n");
         for(j = 0; j < matrixSize; j++) {
             matrix[i][j] = strtod(token, &eptr);
             token = strtok(NULL, " ");
@@ -53,8 +53,8 @@ void buildMatrix(FILE *input_file, double ** matrix, register int matrixSize ) {
  * Generates an identity matrix of matrixSize
  * output: the identity matrix
  */
-void generateIdentityMatrix(double **identityMatrix, register int matrixSize) {
-    register int row, col;
+void generateIdentityMatrix(double **identityMatrix, register short int matrixSize) {
+    register short int row, col;
     for(row = 0; row < matrixSize; row++) {
         for(col = 0; col < matrixSize; col++) {
             if (row == col) {
@@ -73,8 +73,8 @@ void generateIdentityMatrix(double **identityMatrix, register int matrixSize) {
  * input: row that will be divided, how much to divide that row
  * output: the row post division
  */
-double* divideRow(double divisor, double* rowToDivide, register int matrixSize) {
-    register int col;
+double* divideRow(double divisor, double* rowToDivide, register short int matrixSize) {
+    register short int col;
     double inverseDivisor = 1 / divisor;
     for(col = 0; col < matrixSize; col++) {
         rowToDivide[col] *= inverseDivisor;
@@ -87,8 +87,8 @@ double* divideRow(double divisor, double* rowToDivide, register int matrixSize) 
  * input: row that will be reduced, row to reduce it with, multiple of the reducing row
  * output: the row post subtraction
  */
-double* subtractRowTimes(register double timesToSubtract, double* restrict rowToReduce, double* restrict reducingRow, register int matrixSize) {
-    register int col;
+double* subtractRowTimes(register double timesToSubtract, double* restrict rowToReduce, double* restrict reducingRow, register short int matrixSize) {
+    register short int col;
     for(col = 0; col < matrixSize; col++) {
         rowToReduce[col] -= timesToSubtract * reducingRow[col];
     }
@@ -100,10 +100,10 @@ double* subtractRowTimes(register double timesToSubtract, double* restrict rowTo
  * input: matrix to search, index to start looking at
  * output: the index of the max value
  */
-int getSwapRow(double** matrix, int col, register int matrixSize) {
-    register int row;
+int getSwapRow(double** matrix, short int col, register short int matrixSize) {
+    register short int row;
+    short int maxIndex = 0;
     double maxVal = 0;
-    int maxIndex = 0;
     for(row = col; row < matrixSize; row++) {
         if(abs(matrix[row][col]) > maxVal) {
             maxVal = abs(matrix[row][col]);
@@ -118,11 +118,11 @@ int getSwapRow(double** matrix, int col, register int matrixSize) {
  * input: matrix to invert
  * output: the matrix's inverse
  */
-int invertMatrix(double** inputMatrix, double **outputMatrix, register int matrixSize ) {
+int invertMatrix(double** restrict inputMatrix, double** restrict outputMatrix, register short int matrixSize ) {
     generateIdentityMatrix(outputMatrix, matrixSize);
-    register int outerRow, innerRow;
+    register short int outerRow, innerRow;
     double divideRowBy, timesToSubtract;
-    int indexToSwap;
+    short int indexToSwap;
 
     for(outerRow = 0; outerRow < matrixSize; outerRow++) {
         divideRowBy = inputMatrix[outerRow][outerRow];
@@ -161,8 +161,8 @@ int invertMatrix(double** inputMatrix, double **outputMatrix, register int matri
     return 1;
 }
 
-double computeConditionNumber(double** matrix, register int matrixSize) {
-    register int i, j;
+double computeConditionNumber(double** matrix, register short int matrixSize) {
+    register short int i, j;
 	double norm = 0.0;
     double rowSum;
 	for (i=0; i<matrixSize; i++) {
@@ -186,7 +186,7 @@ int main(int argc, char *argv[]) {
     }
     FILE *input_file  = fopen(argv[1], "r");
     char buff[255];
-    int matrixSize = atoi(fgets(buff, 255, (FILE*)input_file));
+    short int matrixSize = atoi(fgets(buff, 255, (FILE*)input_file));
     printf(" Matrix size = %d, argc: %d\n", matrixSize, argc ) ;
     // matrixSize = atoi(argv[2]);
     double ** matrix = malloc(matrixSize*sizeof(double*));
