@@ -11,8 +11,9 @@ int matrixSize;
  * input: the matrix to print
  */
 void printMatrix(double** matrix) {
-    for (int i = 0; i < matrixSize; i++) {
-        for (int j = 0; j < matrixSize; j++) {
+    int i, j;
+    for (i = 0; i < matrixSize; i++) {
+        for (j = 0; j < matrixSize; j++) {
             printf("%f ", matrix[i][j]);
         }
         printf("\n");
@@ -25,13 +26,8 @@ void printMatrix(double** matrix) {
  * input: a file containing a matrix
  * output: the matrix as a 2d array of doubles
  */
-double** buildMatrix(FILE *input_file) {
-    double** matrix = malloc(matrixSize*sizeof(double*));
-
-    for(int i = 0; i < matrixSize; i++) { 
-        matrix[i] = malloc(sizeof(double*) * matrixSize); 
-    } 
-
+void buildMatrix(FILE *input_file, double ** matrix ) {
+    int i, j;
     if (input_file == NULL) 
     {   
         printf("Error! Could not open file\n"); 
@@ -40,31 +36,29 @@ double** buildMatrix(FILE *input_file) {
 
     char buff[255];
     char * token;
+    char *eptr;
 
-    for(int i = 0; i < matrixSize; i++) {
+    for(i = 0; i < matrixSize; i++) {
         fgets(buff, 255, (FILE*)input_file);
         token = strtok(buff, " ");
-        for(int j = 0; j < matrixSize; j++) {
-            matrix[i][j] = atoi(token);
+        if ( token == '\0' ) printf(" Null token\n");
+        for(j = 0; j < matrixSize; j++) {
+            matrix[i][j] = strtod(token, &eptr);
             token = strtok(NULL, " ");
         }
     }
 
-    return matrix;
+    return;
 }
 
 /*
  * Generates an identity matrix of matrixSize
  * output: the identity matrix
  */
-double** generateIdentityMatrix() {
-    double** identityMatrix = malloc(matrixSize*sizeof(double*));
-    for(int i = 0; i < matrixSize; i++) { 
-        identityMatrix[i] = malloc(sizeof(double*) * matrixSize); 
-    } 
-
-    for(int i = 0; i < matrixSize; i++) {
-        for(int j = 0; j < matrixSize; j++) {
+void generateIdentityMatrix(double **identityMatrix) {
+    int i, j;
+    for(i = 0; i < matrixSize; i++) {
+        for(j = 0; j < matrixSize; j++) {
             if (i == j) {
                 identityMatrix[i][j] = 1.0;
             } else {
@@ -73,7 +67,7 @@ double** generateIdentityMatrix() {
         }
     }
 
-    return identityMatrix;
+    return;
 }
 
 /*
@@ -82,7 +76,8 @@ double** generateIdentityMatrix() {
  * output: the row post division
  */
 double* divideRow(double timesToDivide, double* rowToDivide) {
-    for(int col = 0; col < matrixSize; col++) {
+    int col;
+    for(col = 0; col < matrixSize; col++) {
         rowToDivide[col] /= timesToDivide;
     }
     return rowToDivide;
@@ -94,7 +89,8 @@ double* divideRow(double timesToDivide, double* rowToDivide) {
  * output: the row post subtraction
  */
 double* subtractRowTimes(double timesToSubtract, double* rowToReduce, double* reducingRow) {
-    for(int col = 0; col < matrixSize; col++) {
+    int col;
+    for(col = 0; col < matrixSize; col++) {
         rowToReduce[col] -= timesToSubtract * reducingRow[col];
     }
     return rowToReduce;
@@ -108,7 +104,8 @@ double* subtractRowTimes(double timesToSubtract, double* rowToReduce, double* re
 int getSwapRow(double** matrix, int diagIndex) {
     double maxVal = 0;
     int maxIndex = 0;
-    for(int row = diagIndex; row < matrixSize; row++) {
+    int row;
+    for(row = diagIndex; row < matrixSize; row++) {
         if(abs(matrix[row][diagIndex]) > maxVal) {
             maxVal = abs(matrix[row][diagIndex]);
             maxIndex = row;
@@ -122,12 +119,13 @@ int getSwapRow(double** matrix, int diagIndex) {
  * input: matrix to invert
  * output: the matrix's inverse
  */
-double** invertMatrix(double** matrixToInvert) {
-    double** invertedMatrix = generateIdentityMatrix();
+int invertMatrix(double** matrixToInvert, double **invertedMatrix ) {
+    generateIdentityMatrix(invertedMatrix);
     double divideRowBy, timesToSubtract;
     int swappingIndex;
+    int highestIndex, row;
 
-    for(int highestIndex = 0; highestIndex < matrixSize; highestIndex++) {
+    for(highestIndex = 0; highestIndex < matrixSize; highestIndex++) {
         divideRowBy = matrixToInvert[highestIndex][highestIndex];
 
         // This if statement contains the pivoting steps
@@ -150,7 +148,7 @@ double** invertMatrix(double** matrixToInvert) {
         invertedMatrix[highestIndex] = divideRow(divideRowBy, invertedMatrix[highestIndex]);
         matrixToInvert[highestIndex] = divideRow(divideRowBy, matrixToInvert[highestIndex]);
 
-        for(int row = 0; row < matrixSize; row++) {
+        for(row = 0; row < matrixSize; row++) {
             if (highestIndex == row) {
                 continue;
             }
@@ -161,14 +159,16 @@ double** invertMatrix(double** matrixToInvert) {
 
     }
 
-    return invertedMatrix;
+    return 1;
 }
 
 double computeConditionNumber(double** matrix) {
+    int i, j;
 	double norm = 0.0;
-	for (int i=0; i<matrixSize; i++) {
-		double rowSum = 0.0;
-		for (int j=0; j<matrixSize; j++) {
+    double rowSum;
+	for (i=0; i<matrixSize; i++) {
+		rowSum = 0.0;
+		for (j=0; j<matrixSize; j++) {
 			rowSum += fabs(matrix[i][j]);
 		}
 		if (norm < rowSum) {
@@ -180,11 +180,21 @@ double computeConditionNumber(double** matrix) {
 
 /* main.c */
 int main(int argc, char *argv[]) {
+    int i;
+    if ( argc != 2 ) {
+        printf("Error, need input filename.\n");
+        return -1;
+    }
     FILE *input_file  = fopen(argv[1], "r");
     char buff[255];
     matrixSize = atoi(fgets(buff, 255, (FILE*)input_file));
+    printf(" Matrix size = %d, argc: %d\n", matrixSize, argc ) ;
     // matrixSize = atoi(argv[2]);
-    double** matrix = buildMatrix(input_file);
+    double ** matrix = malloc(matrixSize*sizeof(double*));
+    for(i=0; i<matrixSize; i++)
+        *(matrix+i) = (double*)malloc(sizeof(double)*matrixSize);
+
+    buildMatrix(input_file, matrix);
     double conditionNum  = computeConditionNumber(matrix);
 
     printf("Condition number of the matrix: %f\n", conditionNum);
@@ -198,8 +208,11 @@ int main(int argc, char *argv[]) {
     printf("Input Matrix\n");
     printMatrix(matrix);
 
-    double** invertedMatrix = invertMatrix(matrix);
-    if (invertedMatrix == 0) {
+    double ** invertedMatrix = malloc(matrixSize*sizeof(double*));
+    for(i=0; i<matrixSize; i++)
+        *(invertedMatrix+i) = (double*)malloc(sizeof(double)*matrixSize);
+    int x = invertMatrix(matrix, invertedMatrix);
+    if (x == 0) {
         printf("Matrix inversion failed\n");
         return 0;
     }
