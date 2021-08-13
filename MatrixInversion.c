@@ -87,7 +87,7 @@ double* divideRow(double divisor, double* rowToDivide, register short int matrix
  * input: row that will be reduced, row to reduce it with, multiple of the reducing row
  * output: the row post subtraction
  */
-double* subtractRowTimes(register double timesToSubtract, double* restrict rowToReduce, double* restrict reducingRow, register short int matrixSize) {
+double* subtractRowTimes(register double timesToSubtract, double* rowToReduce, double* reducingRow, register short int matrixSize) {
     register short int col;
     for(col = 0; col < matrixSize; col++) {
         rowToReduce[col] -= timesToSubtract * reducingRow[col];
@@ -118,7 +118,7 @@ int getSwapRow(double** matrix, short int col, register short int matrixSize) {
  * input: matrix to invert
  * output: the matrix's inverse
  */
-int invertMatrix(double** restrict inputMatrix, double** restrict outputMatrix, register short int matrixSize ) {
+int invertMatrix(double** inputMatrix, double** outputMatrix, register short int matrixSize ) {
     generateIdentityMatrix(outputMatrix, matrixSize);
     register short int outerRow, innerRow;
     double divideRowBy, timesToSubtract;
