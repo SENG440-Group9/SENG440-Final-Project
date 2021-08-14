@@ -2,54 +2,38 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <math.h>
 
-#define FIXED_POINT_FRACTIONAL_BITS 18
+#define BASE_SCALE_FACTOR 11
 
-typedef int fixed_int_t;
+typedef struct FixedNum {
+    int scaleFactor;
+    int fixedValue;
+} FixedNum;
 
-double fixedToFloat(fixed_int_t fixedVal) {
-    return ((double)fixedVal / (double)(1 << FIXED_POINT_FRACTIONAL_BITS));
+double fixedToFloat(FixedNum fixedVal) {
+    return ((double)fixedVal.fixedValue / (double)(1 << fixedVal.scaleFactor));
 }
 
-fixed_int_t floatToFixed(int floatVal) {
-    return (fixed_int_t)(floatVal * (1 << FIXED_POINT_FRACTIONAL_BITS));
+FixedNum floatToFixed(double floatVal) {
+    if(floatVal != 0) {
+        return (FixedNum){ .scaleFactor = BASE_SCALE_FACTOR, .fixedValue = (int)(floatVal * (1 << BASE_SCALE_FACTOR))};
+    } else {
+        return (FixedNum){ .scaleFactor = 0, .fixedValue = 0};
+    }
 }
-
-// fixed_int_t longIntToFixed(long int longVal) {
-//     int temp = longVal * (1 >> FIXED_POINT_FRACTIONAL_BITS);
-//     return (fixed_int_t)(longVal >> FIXED_POINT_FRACTIONAL_BITS);
-// }
 
 /*
  * Print a matrix
  * input: the matrix to print
  */
-void printMatrix(fixed_int_t** matrix, register short int matrixSize) {
+void printMatrix(FixedNum** matrix, register short int matrixSize) {
     register short int row, col;
-    printf("\nfloats\n");
     for (row = 0; row < matrixSize; row++) {
         for (col = 0; col < matrixSize; col++) {
-            printf("%f ", fixedToFloat(matrix[row][col])); 
+            printf("%f ", fixedToFloat(matrix[row][col]));
         }
         printf("\n");
     }
-    printf("\nFixed\n");
-    for (row = 0; row < matrixSize; row++) {
-        for (col = 0; col < matrixSize; col++) {
-            printf("%d ", matrix[row][col]);
-        }
-        printf("\n\n");
-    }
-    return;
-}
-
-void printRow(fixed_int_t* row) {
-    printf("\nReal matrix\n");
-    for (i = 0; i < matrixSize; i++) {
-        printf("%f ", fixedToFloat(row[i])); 
-    }
-    printf("\n");
     return;
 }
 
@@ -57,7 +41,7 @@ void printRow(fixed_int_t* row) {
  * Builds a matrix from an input file
  * input: a file containing a matrix 
  */
-void buildMatrix(FILE *input_file, double ** matrix, register short int matrixSize) {
+void buildMatrix(FILE *input_file, FixedNum** matrix, register short int matrixSize) {
     register short int row, col;
     char buff[255];
     char * token;
@@ -67,7 +51,7 @@ void buildMatrix(FILE *input_file, double ** matrix, register short int matrixSi
     {   
         printf("Error! Could not open file\n"); 
         exit(-1);
-    } 
+    }
 
     for(row = 0; row < matrixSize; row++) {
         fgets(buff, 255, (FILE*)input_file);
@@ -86,9 +70,9 @@ void buildMatrix(FILE *input_file, double ** matrix, register short int matrixSi
  * Generates an identity matrix of matrixSize
  * output: the identity matrix
  */
-void generateIdentityMatrix(double **identityMatrix, register short int matrixSize) {
+void generateIdentityMatrix(FixedNum **identityMatrix, register short int matrixSize) {
     register short int row, col;
-    
+
     for(row = 0; row < matrixSize; row++) {
         for(col = 0; col < matrixSize; col++) {
             if (row == col) {
@@ -106,14 +90,29 @@ void generateIdentityMatrix(double **identityMatrix, register short int matrixSi
  * input: row that will be divided, how much to divide that row
  * output: the row post division
  */
-fixed_int_t* divideRow(fixed_int_t divisor, fixed_int_t* rowToDivide, register short int matrixSize) {
+FixedNum* divideRow(FixedNum divisor, FixedNum* rowToDivide, register short int matrixSize) {
     register short int col;
-    long int longTransferVariable = 0;
-    fixed_int_t dividingVar = 0;
+    int shiftProduct;
+    
     for(col = 0; col < matrixSize; col++) {
-        dividingVar = rowToDivide[col];
-        rowToDivide[col] = (fixed_int_t)((long)(rowToDivide[col] * (1 << FIXED_POINT_FRACTIONAL_BITS)) / divisor);
-        longTransferVariable = rowToDivide[col];
+        if(rowToDivide[col].fixedValue == 0 || (divisor.fixedValue == 1024 && divisor.scaleFactor == BASE_SCALE_FACTOR)) {
+            continue;
+        }
+        rowToDivide[col] = (FixedNum){ 
+            .fixedValue = ((rowToDivide[col].fixedValue << BASE_SCALE_FACTOR) / divisor.fixedValue), 
+            .scaleFactor = (rowToDivide[col].scaleFactor + BASE_SCALE_FACTOR - divisor.scaleFactor)
+            };
+        if(rowToDivide[col].fixedValue != 0) {
+            if(rowToDivide[col].scaleFactor > BASE_SCALE_FACTOR) {
+                shiftProduct = rowToDivide[col].scaleFactor - BASE_SCALE_FACTOR;
+                rowToDivide[col].fixedValue = rowToDivide[col].fixedValue >> shiftProduct;
+                rowToDivide[col].scaleFactor -= shiftProduct;
+            } else if(rowToDivide[col].scaleFactor < BASE_SCALE_FACTOR) {
+                shiftProduct = BASE_SCALE_FACTOR - rowToDivide[col].scaleFactor;
+                rowToDivide[col].fixedValue = rowToDivide[col].fixedValue << shiftProduct;
+                rowToDivide[col].scaleFactor += shiftProduct;
+            }
+        }
     }
     return rowToDivide;
 }
@@ -123,29 +122,55 @@ fixed_int_t* divideRow(fixed_int_t divisor, fixed_int_t* rowToDivide, register s
  * input: row that will be reduced, row to reduce it with, multiple of the reducing row
  * output: the row post subtraction
  */
-fixed_int_t* subtractRowTimes(fixed_int_t timesToSubtract, fixed_int_t* rowToReduce, fixed_int_t* reducingRow, register short int matrixSize) {
+FixedNum* subtractRowTimes(FixedNum timesToSubtract, FixedNum* rowToReduce, FixedNum* reducingRow, register short int matrixSize) {
     register short int col;
-    long int longTransferVariable = 0;
-    fixed_int_t dividingVar, dividedVar;
+    FixedNum transferVariable;
+    int shiftProduct, newFixedValue, newScaleFactor;
     for(col = 0; col < matrixSize; col++) {
-        longTransferVariable = (long int)(timesToSubtract * reducingRow[col]) >> FIXED_POINT_FRACTIONAL_BITS;
-        rowToReduce[col] -= (fixed_int_t)longTransferVariable;
+        if(timesToSubtract.fixedValue == 0 || reducingRow[col].fixedValue == 0) {
+            continue;
+        }
+        newFixedValue = (timesToSubtract.fixedValue * reducingRow[col].fixedValue) >> BASE_SCALE_FACTOR;
+        newScaleFactor = timesToSubtract.scaleFactor + reducingRow[col].scaleFactor - BASE_SCALE_FACTOR;
+        transferVariable = (FixedNum){.fixedValue = newFixedValue, .scaleFactor = newScaleFactor };
+        if(transferVariable.scaleFactor > rowToReduce[col].scaleFactor) {
+            rowToReduce[col].fixedValue = rowToReduce[col].fixedValue << (transferVariable.scaleFactor - rowToReduce[col].scaleFactor);
+            rowToReduce[col].scaleFactor = transferVariable.scaleFactor;
+        } else if(transferVariable.scaleFactor < rowToReduce[col].scaleFactor) {
+            transferVariable.fixedValue = transferVariable.fixedValue << (rowToReduce[col].scaleFactor - transferVariable.scaleFactor);
+            transferVariable.scaleFactor = rowToReduce[col].scaleFactor;
+        }
+        rowToReduce[col].fixedValue -=  transferVariable.fixedValue;
+        if(rowToReduce[col].fixedValue != 0) {
+            if(rowToReduce[col].scaleFactor > BASE_SCALE_FACTOR) {
+                shiftProduct = rowToReduce[col].scaleFactor - BASE_SCALE_FACTOR;
+                rowToReduce[col].fixedValue = rowToReduce[col].fixedValue >> shiftProduct;
+                rowToReduce[col].scaleFactor -= shiftProduct;
+            } else if(rowToReduce[col].scaleFactor < BASE_SCALE_FACTOR) {
+                shiftProduct = BASE_SCALE_FACTOR - rowToReduce[col].scaleFactor;
+                rowToReduce[col].fixedValue = rowToReduce[col].fixedValue << shiftProduct;
+                rowToReduce[col].scaleFactor += shiftProduct;
+            }
+        }
+
     }
     return rowToReduce;
 }
 
 /*
- * Get the index of the highest absolute value in the column, to use later to swap it with the [diagIndex] row
+ * Get the index of the highest absolute value in the column, to use later to swap it with the [col] row
  * input: matrix to search, index to start looking at
  * output: the index of the max value
  */
-int getSwapRow(fixed_int_t** matrix, short int col, register short int matrixSize) {
+short int getSwapRow(FixedNum** matrix, short int col, register short int matrixSize) {
     register short int row;
-    fixed_int_t maxVal = 0;
+    int maxVal = 0;
     int maxIndex = 0;
+    int currentValue;
     for(row = col; row < matrixSize; row++) {
-        if(abs(matrix[row][col]) > maxVal) {
-            maxVal = abs(matrix[row][col]);
+        currentValue = abs(matrix[row][col].fixedValue >> matrix[row][col].scaleFactor);
+        if(currentValue > maxVal) {
+            maxVal = currentValue;
             maxIndex = row;
         }
     }
@@ -157,62 +182,55 @@ int getSwapRow(fixed_int_t** matrix, short int col, register short int matrixSiz
  * input: matrix to invert
  * output: the matrix's inverse
  */
-int invertMatrix(fixed_int_t** inputMatrix, fixed_int_t** outputMatrix, register short int matrixSize) {
-    generateIdentityMatrix(outputMatrix, matrixSize);
+int invertMatrix(FixedNum** inputMatrix, FixedNum** outputMatrix, register short int matrixSize) {
     register short int outerRow, innerRow;
-    fixed_int_t divideRowBy, timesToSubtract;
-    int indexToSwap;
+    short int indexToSwap;
+    FixedNum divideRowBy, timesToSubtract;
+    FixedNum* rowTransferVariable;
+    generateIdentityMatrix(outputMatrix, matrixSize);
 
     for(outerRow = 0; outerRow < matrixSize; outerRow++) {
         divideRowBy = inputMatrix[outerRow][outerRow];
 
         // This if statement contains the pivoting steps
-        if(divideRowBy == 0) {
-            fixed_int_t* tempRow;
+        if(divideRowBy.fixedValue == 0) {
             indexToSwap = getSwapRow(inputMatrix, outerRow, matrixSize);
             if(indexToSwap == 0) {
                 printf("Error! Matrix is not invertable. There is no usable value to pivot in column %d\n", outerRow);
                 exit(-1);
             }
             // Swapping the rows
-            tempRow = inputMatrix[outerRow];
+            rowTransferVariable = inputMatrix[outerRow];
             inputMatrix[outerRow] = inputMatrix[indexToSwap];
-            inputMatrix[indexToSwap] = tempRow;
-            tempRow = outputMatrix[outerRow];
+            inputMatrix[indexToSwap] = rowTransferVariable;
+            rowTransferVariable = outputMatrix[outerRow];
             outputMatrix[outerRow] = outputMatrix[indexToSwap];
-            outputMatrix[indexToSwap] = tempRow;
+            outputMatrix[indexToSwap] = rowTransferVariable;
             divideRowBy = inputMatrix[outerRow][outerRow];
         }
-        outputMatrix[outerRow] = divideRow(divideRowBy, outputMatrix[outerRow], matrixSize);
         inputMatrix[outerRow] = divideRow(divideRowBy, inputMatrix[outerRow], matrixSize);
+        outputMatrix[outerRow] = divideRow(divideRowBy, outputMatrix[outerRow], matrixSize);
 
         for(innerRow = 0; innerRow < matrixSize; innerRow++) {
             if (outerRow == innerRow) {
                 continue;
             }
-            // printf("\n\n----------------------\n Stubracting\n");
-            // printf("inputMatrix\n");
-            // printMatrix(inputMatrix);
-            // printf("\n\noutputMatrix\n");
-            // printMatrix(outputMatrix);
             timesToSubtract = inputMatrix[innerRow][outerRow];
             inputMatrix[innerRow] = subtractRowTimes(timesToSubtract, inputMatrix[innerRow], inputMatrix[outerRow], matrixSize);
             outputMatrix[innerRow] = subtractRowTimes(timesToSubtract, outputMatrix[innerRow], outputMatrix[outerRow], matrixSize);
         }
-
     }
-
     return 1;
 }
 
-double computeConditionNumber(double** matrix, register short int matrixSize) {
+int computeConditionNumber(FixedNum** matrix, register short int matrixSize) {
     register short int row, col;
-	double norm = 0.0;
-    double rowSum;
+	int norm = 0;
+    int rowSum;
 	for (row=0; row<matrixSize; row++) {
-		rowSum = 0.0;
+		rowSum = 0;
 		for (col=0; col<matrixSize; col++) {
-			rowSum += fabs(matrix[row][col]);
+			rowSum += abs(matrix[row][col].fixedValue >> matrix[row][col].scaleFactor);
 		}
 		if (norm < rowSum) {
 			norm = rowSum;
@@ -227,6 +245,7 @@ int main(int argc, char *argv[]) {
     short int matrixSize;
     double conditionNum;
 
+    // File IO
     if ( argc != 2 ) {
         printf("Error, need input filename.\n");
         return -1;
@@ -234,32 +253,38 @@ int main(int argc, char *argv[]) {
     FILE *input_file  = fopen(argv[1], "r");
     matrixSize = atoi(fgets(buff, 255, (FILE*)input_file));
     printf(" Matrix size = %d, argc: %d\n", matrixSize, argc);
-    fixed_int_t** matrix = malloc(matrixSize*sizeof(fixed_int_t*));
+
+    // Building input matrix
+    FixedNum** inputMatrix = malloc(matrixSize*sizeof(FixedNum*));
     for(i = 0; i < matrixSize; i++)
-        *(matrix+i) = (fixed_int_t*)malloc(sizeof(fixed_int_t)*matrixSize);
-    buildMatrix(input_file, matrix, matrixSize);
+        *(inputMatrix+i) = (FixedNum*)malloc(sizeof(FixedNum)*matrixSize);
+    buildMatrix(input_file, inputMatrix, matrixSize);
 
-    conditionNum  = computeConditionNumber(matrix, matrixSize);
-
+    // Condition number calculation
+    conditionNum  = computeConditionNumber(inputMatrix, matrixSize);
     printf("Condition number of the matrix: %f\n", conditionNum);
     if (conditionNum >= 25.00) {
 	    fclose(input_file);
-	    free(matrix);
+	    free(inputMatrix);
 	    printf("Input matix is not well-conditioned. Exiting program.\n");
 	    return -1;
     }
     printf("Input Matrix\n");
-    printMatrix(matrix, matrixSize);
-    fixed_int_t** outputMatrix = malloc(matrixSize*sizeof(fixed_int_t*));
-    for(i=0; i<matrixSize; i++)
-        *(outputMatrix+i) = (fixed_int_t*)malloc(sizeof(fixed_int_t)*matrixSize);
-    invertMatrix(matrix, outputMatrix, matrixSize);
+    printMatrix(inputMatrix, matrixSize);
+    
+    // Building output matrix
+    FixedNum** outputMatrix = malloc(matrixSize*sizeof(FixedNum*));
+    for(i = 0; i < matrixSize; i++)
+        *(outputMatrix+i) = (FixedNum*)malloc(sizeof(FixedNum)*matrixSize);
+
+    // Invert matrices
+    invertMatrix(inputMatrix, outputMatrix, matrixSize);
 
     // printf("Row reduced input matrix (should be the identity matrix)\n");
-    // printMatrix(matrix, matrixSize);
+    // printMatrix(inputMatrix, matrixSize);
     printf("Inverted Matrix\n");
     printMatrix(outputMatrix, matrixSize);
     fclose(input_file);
-    free(matrix);
+    free(inputMatrix);
     free(outputMatrix);
 }
