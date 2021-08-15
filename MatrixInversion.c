@@ -95,13 +95,17 @@ FixedNum* divideRow(FixedNum divisor, FixedNum* rowToDivide, register short int 
     int shiftProduct;
     
     for(col = 0; col < matrixSize; col++) {
+        // Ignore divisions that won't change the value
         if(rowToDivide[col].fixedValue == 0 || (divisor.fixedValue == 1024 && divisor.scaleFactor == BASE_SCALE_FACTOR)) {
             continue;
         }
+        // Shift the dividend before dividing to preserve more decimal precision
         rowToDivide[col] = (FixedNum){ 
             .fixedValue = ((rowToDivide[col].fixedValue << BASE_SCALE_FACTOR) / divisor.fixedValue), 
             .scaleFactor = (rowToDivide[col].scaleFactor + BASE_SCALE_FACTOR - divisor.scaleFactor)
             };
+            
+        // Make sure the new number has the correct precision
         if(rowToDivide[col].fixedValue != 0) {
             if(rowToDivide[col].scaleFactor > BASE_SCALE_FACTOR) {
                 shiftProduct = rowToDivide[col].scaleFactor - BASE_SCALE_FACTOR;
@@ -127,12 +131,15 @@ FixedNum* subtractRowTimes(FixedNum timesToSubtract, FixedNum* rowToReduce, Fixe
     FixedNum transferVariable;
     int shiftProduct, newFixedValue, newScaleFactor;
     for(col = 0; col < matrixSize; col++) {
+        // Ignore subtractions that have no effect
         if(timesToSubtract.fixedValue == 0 || reducingRow[col].fixedValue == 0) {
             continue;
         }
+        // Multiplying the subtractor
         newFixedValue = (timesToSubtract.fixedValue * reducingRow[col].fixedValue) >> BASE_SCALE_FACTOR;
         newScaleFactor = timesToSubtract.scaleFactor + reducingRow[col].scaleFactor - BASE_SCALE_FACTOR;
         transferVariable = (FixedNum){.fixedValue = newFixedValue, .scaleFactor = newScaleFactor };
+        // Both numbers must have the same scaling factor to subtract properly
         if(transferVariable.scaleFactor > rowToReduce[col].scaleFactor) {
             rowToReduce[col].fixedValue = rowToReduce[col].fixedValue << (transferVariable.scaleFactor - rowToReduce[col].scaleFactor);
             rowToReduce[col].scaleFactor = transferVariable.scaleFactor;
@@ -140,7 +147,10 @@ FixedNum* subtractRowTimes(FixedNum timesToSubtract, FixedNum* rowToReduce, Fixe
             transferVariable.fixedValue = transferVariable.fixedValue << (rowToReduce[col].scaleFactor - transferVariable.scaleFactor);
             transferVariable.scaleFactor = rowToReduce[col].scaleFactor;
         }
+        // The actual subtraction
         rowToReduce[col].fixedValue -=  transferVariable.fixedValue;
+
+        // Make sure the new number has the correct precision
         if(rowToReduce[col].fixedValue != 0) {
             if(rowToReduce[col].scaleFactor > BASE_SCALE_FACTOR) {
                 shiftProduct = rowToReduce[col].scaleFactor - BASE_SCALE_FACTOR;
