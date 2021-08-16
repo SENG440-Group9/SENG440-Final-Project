@@ -388,7 +388,7 @@ int main(int argc, char *argv[]) {
         printf("Error, incorrect matrix size. Must be a %dX%d matrix.\n", MATRIX_SIZE, MATRIX_SIZE);
         return -1;
     }
-    printf(" Matrix size = %d, argc: %d\n", argc, MATRIX_SIZE);
+    // printf(" Matrix size = %d, argc: %d\n", argc, MATRIX_SIZE);
 
     // Building input matrix
     FixedNum** inputMatrix = malloc(MATRIX_SIZE*sizeof(FixedNum*));
@@ -398,15 +398,15 @@ int main(int argc, char *argv[]) {
 
     // Condition number calculation
     conditionNum  = computeConditionNumber(inputMatrix);
-    printf("Condition number of the matrix: %f\n", conditionNum);
+    // printf("Condition number of the matrix: %f\n", conditionNum);
     if (conditionNum >= 25.00) {
         fclose(input_file);
         free(inputMatrix);
         printf("Input matix is not well-conditioned. Exiting program.\n");
         return -1;
     }
-    printf("Input Matrix\n");
-    printMatrix(inputMatrix);
+    // printf("Input Matrix\n");
+    // printMatrix(inputMatrix);
     
     // Building output matrix
     FixedNum** outputMatrix = malloc(MATRIX_SIZE*sizeof(FixedNum*));
@@ -418,7 +418,7 @@ int main(int argc, char *argv[]) {
 
     // printf("Row reduced input matrix (should be the identity matrix)\n");
     // printMatrix(inputMatrix);
-    printf("Inverted Matrix\n");
+    // printf("Inverted Matrix\n");
     printMatrix(outputMatrix);
     fclose(input_file);
     free(inputMatrix);
