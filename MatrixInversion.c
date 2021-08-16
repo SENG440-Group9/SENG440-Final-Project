@@ -101,7 +101,7 @@ void generateIdentityMatrix(FixedNum **identityMatrix) {
  */
 FixedNum* divideRow(FixedNum divisor, FixedNum* rowToDivide) {
     register int col;
-    int shiftProduct;
+    int shiftProduct, divisionResult;
     
     /*
      * Loop unrolling performed here.
@@ -111,8 +111,9 @@ FixedNum* divideRow(FixedNum divisor, FixedNum* rowToDivide) {
         // Ignore divisions that won't change the value
         if(!(rowToDivide[col].fixedValue == 0 || (divisor.fixedValue == 1024 && divisor.scaleFactor == BASE_SCALE_FACTOR))) {
 			// Shift the dividend before dividing to preserve more decimal precision
+            __asm__("SDR %0, %1, %2" : "=r" (divisionResult) : "r" (rowToDivide[col].fixedValue), "r" (divisor.fixedValue));
 			rowToDivide[col] = (FixedNum){ 
-				.fixedValue = ((rowToDivide[col].fixedValue << BASE_SCALE_FACTOR) / divisor.fixedValue), 
+				.fixedValue = divisionResult, 
 				.scaleFactor = (rowToDivide[col].scaleFactor + BASE_SCALE_FACTOR - divisor.scaleFactor)
 				};
 				
@@ -135,8 +136,9 @@ FixedNum* divideRow(FixedNum divisor, FixedNum* rowToDivide) {
         // Ignore divisions that won't change the value
         if(!(rowToDivide[col].fixedValue == 0 || (divisor.fixedValue == 1024 && divisor.scaleFactor == BASE_SCALE_FACTOR))) {
 			// Shift the dividend before dividing to preserve more decimal precision
+            __asm__("SDR %0, %1, %2" : "=r" (divisionResult) : "r" (rowToDivide[col].fixedValue), "r" (divisor.fixedValue));
 			rowToDivide[col] = (FixedNum){ 
-				.fixedValue = ((rowToDivide[col].fixedValue << BASE_SCALE_FACTOR) / divisor.fixedValue), 
+				.fixedValue = divisionResult, 
 				.scaleFactor = (rowToDivide[col].scaleFactor + BASE_SCALE_FACTOR - divisor.scaleFactor)
 				};
 				
