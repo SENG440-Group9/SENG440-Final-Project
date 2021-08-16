@@ -188,7 +188,7 @@ int main(int argc, char *argv[]) {
     FILE *input_file  = fopen(argv[1], "r");
     char buff[255];
     matrixSize = atoi(fgets(buff, 255, (FILE*)input_file));
-    printf(" Matrix size = %d, argc: %d\n", matrixSize, argc ) ;
+    // printf(" Matrix size = %d, argc: %d\n", matrixSize, argc ) ;
     // matrixSize = atoi(argv[2]);
     double ** matrix = malloc(matrixSize*sizeof(double*));
     for(i=0; i<matrixSize; i++)
@@ -197,7 +197,7 @@ int main(int argc, char *argv[]) {
     buildMatrix(input_file, matrix);
     double conditionNum  = computeConditionNumber(matrix);
 
-    printf("Condition number of the matrix: %f\n", conditionNum);
+    // printf("Condition number of the matrix: %f\n", conditionNum);
     if (conditionNum >= 25.00) {
 	    fclose(input_file);
 	    free(matrix);
@@ -205,8 +205,8 @@ int main(int argc, char *argv[]) {
 	    return -1;
     }
 
-    printf("Input Matrix\n");
-    printMatrix(matrix);
+    // printf("Input Matrix\n");
+    // printMatrix(matrix);
 
     double ** invertedMatrix = malloc(matrixSize*sizeof(double*));
     for(i=0; i<matrixSize; i++)
@@ -219,7 +219,7 @@ int main(int argc, char *argv[]) {
 
     // printf("Row reduced input matrix (should be the identity matrix)\n");
     // printMatrix(matrix);
-    printf("Inverted Matrix\n");
+    // printf("Inverted Matrix\n");
     printMatrix(invertedMatrix);
     fclose(input_file);
     free(matrix);
