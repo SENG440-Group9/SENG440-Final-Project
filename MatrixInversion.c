@@ -29,8 +29,16 @@ FixedNum floatToFixed(double floatVal) {
 void printMatrix(FixedNum** matrix, register short int matrixSize) {
     register short int row, col;
     for (row = 0; row < matrixSize; row++) {
-        for (col = 0; col < matrixSize; col++) {
-            printf("%f ", fixedToFloat(matrix[row][col]));
+		/*
+		 * Loop unrolling performed here.
+		 * ASSUMPTION: matrixSize > 4 && matrixSize a multiple of 4
+		 */
+        for (col = 0; col < matrixSize; col+=4){
+            printf("%f %f %f %f ", 
+					fixedToFloat(matrix[row][col]),
+					fixedToFloat(matrix[row][col+1]),
+					fixedToFloat(matrix[row][col+2]),
+					fixedToFloat(matrix[row][col+3]));
         }
         printf("\n");
     }
@@ -94,28 +102,55 @@ FixedNum* divideRow(FixedNum divisor, FixedNum* rowToDivide, register short int 
     register short int col;
     int shiftProduct;
     
+    /*
+     * Loop unrolling performed here.
+     * ASSUMPTION: matrixSize > 2 && matrixSize a multiple of 2
+     */
     for(col = 0; col < matrixSize; col++) {
         // Ignore divisions that won't change the value
-        if(rowToDivide[col].fixedValue == 0 || (divisor.fixedValue == 1024 && divisor.scaleFactor == BASE_SCALE_FACTOR)) {
-            continue;
+        if(!(rowToDivide[col].fixedValue == 0 || (divisor.fixedValue == 1024 && divisor.scaleFactor == BASE_SCALE_FACTOR))) {
+			// Shift the dividend before dividing to preserve more decimal precision
+			rowToDivide[col] = (FixedNum){ 
+				.fixedValue = ((rowToDivide[col].fixedValue << BASE_SCALE_FACTOR) / divisor.fixedValue), 
+				.scaleFactor = (rowToDivide[col].scaleFactor + BASE_SCALE_FACTOR - divisor.scaleFactor)
+				};
+				
+			// Make sure the new number has the correct precision
+			if(rowToDivide[col].fixedValue != 0) {
+				if(rowToDivide[col].scaleFactor > BASE_SCALE_FACTOR) {
+					shiftProduct = rowToDivide[col].scaleFactor - BASE_SCALE_FACTOR;
+					rowToDivide[col].fixedValue = rowToDivide[col].fixedValue >> shiftProduct;
+					rowToDivide[col].scaleFactor -= shiftProduct;
+				} else if(rowToDivide[col].scaleFactor < BASE_SCALE_FACTOR) {
+					shiftProduct = BASE_SCALE_FACTOR - rowToDivide[col].scaleFactor;
+					rowToDivide[col].fixedValue = rowToDivide[col].fixedValue << shiftProduct;
+					rowToDivide[col].scaleFactor += shiftProduct;
+				}
+			}
         }
-        // Shift the dividend before dividing to preserve more decimal precision
-        rowToDivide[col] = (FixedNum){ 
-            .fixedValue = ((rowToDivide[col].fixedValue << BASE_SCALE_FACTOR) / divisor.fixedValue), 
-            .scaleFactor = (rowToDivide[col].scaleFactor + BASE_SCALE_FACTOR - divisor.scaleFactor)
-            };
-            
-        // Make sure the new number has the correct precision
-        if(rowToDivide[col].fixedValue != 0) {
-            if(rowToDivide[col].scaleFactor > BASE_SCALE_FACTOR) {
-                shiftProduct = rowToDivide[col].scaleFactor - BASE_SCALE_FACTOR;
-                rowToDivide[col].fixedValue = rowToDivide[col].fixedValue >> shiftProduct;
-                rowToDivide[col].scaleFactor -= shiftProduct;
-            } else if(rowToDivide[col].scaleFactor < BASE_SCALE_FACTOR) {
-                shiftProduct = BASE_SCALE_FACTOR - rowToDivide[col].scaleFactor;
-                rowToDivide[col].fixedValue = rowToDivide[col].fixedValue << shiftProduct;
-                rowToDivide[col].scaleFactor += shiftProduct;
-            }
+
+		col++;
+
+        // Ignore divisions that won't change the value
+        if(!(rowToDivide[col].fixedValue == 0 || (divisor.fixedValue == 1024 && divisor.scaleFactor == BASE_SCALE_FACTOR))) {
+			// Shift the dividend before dividing to preserve more decimal precision
+			rowToDivide[col] = (FixedNum){ 
+				.fixedValue = ((rowToDivide[col].fixedValue << BASE_SCALE_FACTOR) / divisor.fixedValue), 
+				.scaleFactor = (rowToDivide[col].scaleFactor + BASE_SCALE_FACTOR - divisor.scaleFactor)
+				};
+				
+			// Make sure the new number has the correct precision
+			if(rowToDivide[col].fixedValue != 0) {
+				if(rowToDivide[col].scaleFactor > BASE_SCALE_FACTOR) {
+					shiftProduct = rowToDivide[col].scaleFactor - BASE_SCALE_FACTOR;
+					rowToDivide[col].fixedValue = rowToDivide[col].fixedValue >> shiftProduct;
+					rowToDivide[col].scaleFactor -= shiftProduct;
+				} else if(rowToDivide[col].scaleFactor < BASE_SCALE_FACTOR) {
+					shiftProduct = BASE_SCALE_FACTOR - rowToDivide[col].scaleFactor;
+					rowToDivide[col].fixedValue = rowToDivide[col].fixedValue << shiftProduct;
+					rowToDivide[col].scaleFactor += shiftProduct;
+				}
+			}
         }
     }
     return rowToDivide;
@@ -130,39 +165,76 @@ FixedNum* subtractRowTimes(FixedNum timesToSubtract, FixedNum* rowToReduce, Fixe
     register short int col;
     FixedNum transferVariable;
     int shiftProduct, newFixedValue, newScaleFactor;
+    /*
+     * Loop unrolling performed here.
+     * ASSUMPTION: matrixSize > 2 && matrixSize a multiple of 2
+     */
     for(col = 0; col < matrixSize; col++) {
         // Ignore subtractions that have no effect
-        if(timesToSubtract.fixedValue == 0 || reducingRow[col].fixedValue == 0) {
-            continue;
-        }
-        // Multiplying the subtractor
-        newFixedValue = (timesToSubtract.fixedValue * reducingRow[col].fixedValue) >> BASE_SCALE_FACTOR;
-        newScaleFactor = timesToSubtract.scaleFactor + reducingRow[col].scaleFactor - BASE_SCALE_FACTOR;
-        transferVariable = (FixedNum){.fixedValue = newFixedValue, .scaleFactor = newScaleFactor };
-        // Both numbers must have the same scaling factor to subtract properly
-        if(transferVariable.scaleFactor > rowToReduce[col].scaleFactor) {
-            rowToReduce[col].fixedValue = rowToReduce[col].fixedValue << (transferVariable.scaleFactor - rowToReduce[col].scaleFactor);
-            rowToReduce[col].scaleFactor = transferVariable.scaleFactor;
-        } else if(transferVariable.scaleFactor < rowToReduce[col].scaleFactor) {
-            transferVariable.fixedValue = transferVariable.fixedValue << (rowToReduce[col].scaleFactor - transferVariable.scaleFactor);
-            transferVariable.scaleFactor = rowToReduce[col].scaleFactor;
-        }
-        // The actual subtraction
-        rowToReduce[col].fixedValue -=  transferVariable.fixedValue;
+        if(timesToSubtract.fixedValue != 0 && reducingRow[col].fixedValue != 0) {
+			
+			// Multiplying the subtractor
+			newFixedValue = (timesToSubtract.fixedValue * reducingRow[col].fixedValue) >> BASE_SCALE_FACTOR;
+			newScaleFactor = timesToSubtract.scaleFactor + reducingRow[col].scaleFactor - BASE_SCALE_FACTOR;
+			transferVariable = (FixedNum){.fixedValue = newFixedValue, .scaleFactor = newScaleFactor };
+			// Both numbers must have the same scaling factor to subtract properly
+			if(transferVariable.scaleFactor > rowToReduce[col].scaleFactor) {
+				rowToReduce[col].fixedValue = rowToReduce[col].fixedValue << (transferVariable.scaleFactor - rowToReduce[col].scaleFactor);
+				rowToReduce[col].scaleFactor = transferVariable.scaleFactor;
+			} else if(transferVariable.scaleFactor < rowToReduce[col].scaleFactor) {
+				transferVariable.fixedValue = transferVariable.fixedValue << (rowToReduce[col].scaleFactor - transferVariable.scaleFactor);
+				transferVariable.scaleFactor = rowToReduce[col].scaleFactor;
+			}
+			// The actual subtraction
+			rowToReduce[col].fixedValue -=  transferVariable.fixedValue;
 
-        // Make sure the new number has the correct precision
-        if(rowToReduce[col].fixedValue != 0) {
-            if(rowToReduce[col].scaleFactor > BASE_SCALE_FACTOR) {
-                shiftProduct = rowToReduce[col].scaleFactor - BASE_SCALE_FACTOR;
-                rowToReduce[col].fixedValue = rowToReduce[col].fixedValue >> shiftProduct;
-                rowToReduce[col].scaleFactor -= shiftProduct;
-            } else if(rowToReduce[col].scaleFactor < BASE_SCALE_FACTOR) {
-                shiftProduct = BASE_SCALE_FACTOR - rowToReduce[col].scaleFactor;
-                rowToReduce[col].fixedValue = rowToReduce[col].fixedValue << shiftProduct;
-                rowToReduce[col].scaleFactor += shiftProduct;
-            }
+			// Make sure the new number has the correct precision
+			if(rowToReduce[col].fixedValue != 0) {
+				if(rowToReduce[col].scaleFactor > BASE_SCALE_FACTOR) {
+					shiftProduct = rowToReduce[col].scaleFactor - BASE_SCALE_FACTOR;
+					rowToReduce[col].fixedValue = rowToReduce[col].fixedValue >> shiftProduct;
+					rowToReduce[col].scaleFactor -= shiftProduct;
+				} else if(rowToReduce[col].scaleFactor < BASE_SCALE_FACTOR) {
+					shiftProduct = BASE_SCALE_FACTOR - rowToReduce[col].scaleFactor;
+					rowToReduce[col].fixedValue = rowToReduce[col].fixedValue << shiftProduct;
+					rowToReduce[col].scaleFactor += shiftProduct;
+				}
+			}
         }
 
+		col++;
+
+        // Ignore subtractions that have no effect
+        if(timesToSubtract.fixedValue != 0 && reducingRow[col].fixedValue != 0) {
+			
+			// Multiplying the subtractor
+			newFixedValue = (timesToSubtract.fixedValue * reducingRow[col].fixedValue) >> BASE_SCALE_FACTOR;
+			newScaleFactor = timesToSubtract.scaleFactor + reducingRow[col].scaleFactor - BASE_SCALE_FACTOR;
+			transferVariable = (FixedNum){.fixedValue = newFixedValue, .scaleFactor = newScaleFactor };
+			// Both numbers must have the same scaling factor to subtract properly
+			if(transferVariable.scaleFactor > rowToReduce[col].scaleFactor) {
+				rowToReduce[col].fixedValue = rowToReduce[col].fixedValue << (transferVariable.scaleFactor - rowToReduce[col].scaleFactor);
+				rowToReduce[col].scaleFactor = transferVariable.scaleFactor;
+			} else if(transferVariable.scaleFactor < rowToReduce[col].scaleFactor) {
+				transferVariable.fixedValue = transferVariable.fixedValue << (rowToReduce[col].scaleFactor - transferVariable.scaleFactor);
+				transferVariable.scaleFactor = rowToReduce[col].scaleFactor;
+			}
+			// The actual subtraction
+			rowToReduce[col].fixedValue -=  transferVariable.fixedValue;
+
+			// Make sure the new number has the correct precision
+			if(rowToReduce[col].fixedValue != 0) {
+				if(rowToReduce[col].scaleFactor > BASE_SCALE_FACTOR) {
+					shiftProduct = rowToReduce[col].scaleFactor - BASE_SCALE_FACTOR;
+					rowToReduce[col].fixedValue = rowToReduce[col].fixedValue >> shiftProduct;
+					rowToReduce[col].scaleFactor -= shiftProduct;
+				} else if(rowToReduce[col].scaleFactor < BASE_SCALE_FACTOR) {
+					shiftProduct = BASE_SCALE_FACTOR - rowToReduce[col].scaleFactor;
+					rowToReduce[col].fixedValue = rowToReduce[col].fixedValue << shiftProduct;
+					rowToReduce[col].scaleFactor += shiftProduct;
+				}
+			}
+        }
     }
     return rowToReduce;
 }
@@ -177,7 +249,17 @@ short int getSwapRow(FixedNum** matrix, short int col, register short int matrix
     int maxVal = 0;
     int maxIndex = 0;
     int currentValue;
+    /*
+     * Loop unrolling performed here.
+     * ASSUMPTION: matrixSize > 2 && matrixSize a multiple of 2
+     */
     for(row = col; row < matrixSize; row++) {
+        currentValue = abs(matrix[row][col].fixedValue >> matrix[row][col].scaleFactor);
+        if(currentValue > maxVal) {
+            maxVal = currentValue;
+            maxIndex = row;
+        }
+		row++;
         currentValue = abs(matrix[row][col].fixedValue >> matrix[row][col].scaleFactor);
         if(currentValue > maxVal) {
             maxVal = currentValue;
@@ -221,13 +303,22 @@ int invertMatrix(FixedNum** inputMatrix, FixedNum** outputMatrix, register short
         inputMatrix[outerRow] = divideRow(divideRowBy, inputMatrix[outerRow], matrixSize);
         outputMatrix[outerRow] = divideRow(divideRowBy, outputMatrix[outerRow], matrixSize);
 
+		/*
+		 * Loop unrolling performed here.
+		 * ASSUMPTION: matrixSize > 2 && matrixSize a multiple of 2
+		 */
         for(innerRow = 0; innerRow < matrixSize; innerRow++) {
-            if (outerRow == innerRow) {
-                continue;
+            if (outerRow != innerRow) {
+				timesToSubtract = inputMatrix[innerRow][outerRow];
+				inputMatrix[innerRow] = subtractRowTimes(timesToSubtract, inputMatrix[innerRow], inputMatrix[outerRow], matrixSize);
+				outputMatrix[innerRow] = subtractRowTimes(timesToSubtract, outputMatrix[innerRow], outputMatrix[outerRow], matrixSize);
             }
-            timesToSubtract = inputMatrix[innerRow][outerRow];
-            inputMatrix[innerRow] = subtractRowTimes(timesToSubtract, inputMatrix[innerRow], inputMatrix[outerRow], matrixSize);
-            outputMatrix[innerRow] = subtractRowTimes(timesToSubtract, outputMatrix[innerRow], outputMatrix[outerRow], matrixSize);
+			innerRow++;
+            if (outerRow != innerRow) {
+				timesToSubtract = inputMatrix[innerRow][outerRow];
+				inputMatrix[innerRow] = subtractRowTimes(timesToSubtract, inputMatrix[innerRow], inputMatrix[outerRow], matrixSize);
+				outputMatrix[innerRow] = subtractRowTimes(timesToSubtract, outputMatrix[innerRow], outputMatrix[outerRow], matrixSize);
+            }
         }
     }
     return 1;
@@ -237,15 +328,45 @@ int computeConditionNumber(FixedNum** matrix, register short int matrixSize) {
     register short int row, col;
 	int norm = 0;
     int rowSum;
+
+    /*
+     * Loop unrolling performed here.
+     * ASSUMPTION: matrixSize > 2 && matrixSize a multiple of 2
+     */
 	for (row=0; row<matrixSize; row++) {
 		rowSum = 0;
-		for (col=0; col<matrixSize; col++) {
+		/*
+		 * Loop unrolling performed here.
+		 * ASSUMPTION: matrixSize > 4 && matrixSize a multiple of 4
+		 */
+		for (col=0; col<matrixSize; col+=4) {
 			rowSum += abs(matrix[row][col].fixedValue >> matrix[row][col].scaleFactor);
+			rowSum += abs(matrix[row][col+1].fixedValue >> matrix[row][col+1].scaleFactor);
+			rowSum += abs(matrix[row][col+2].fixedValue >> matrix[row][col+2].scaleFactor);
+			rowSum += abs(matrix[row][col+3].fixedValue >> matrix[row][col+3].scaleFactor);
+		}
+		if (norm < rowSum) {
+			norm = rowSum;
+		}
+
+		row++;
+
+		rowSum = 0;
+		/*
+		 * Loop unrolling performed here.
+		 * ASSUMPTION: matrixSize > 4 && matrixSize a multiple of 4
+		 */
+		for (col=0; col<matrixSize; col+=4) {
+			rowSum += abs(matrix[row][col].fixedValue >> matrix[row][col].scaleFactor);
+			rowSum += abs(matrix[row][col+1].fixedValue >> matrix[row][col+1].scaleFactor);
+			rowSum += abs(matrix[row][col+2].fixedValue >> matrix[row][col+2].scaleFactor);
+			rowSum += abs(matrix[row][col+3].fixedValue >> matrix[row][col+3].scaleFactor);
 		}
 		if (norm < rowSum) {
 			norm = rowSum;
 		}
 	}
+
 	return norm;
 }
 
