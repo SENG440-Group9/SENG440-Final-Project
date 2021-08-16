@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <math.h>
 
 #define BASE_SCALE_FACTOR 11
 
@@ -11,8 +12,7 @@ typedef struct FixedNum {
 } FixedNum;
 
 double fixedToFloat(FixedNum fixedVal) {
-    return ((double)fixedVal.fixedValue / (double)(1 << fixedVal.scaleFactor));
-}
+    return ((double)fixedVal.fixedValue / (double)(1 << fixedVal.scaleFactor)); }
 
 FixedNum floatToFixed(double floatVal) {
     if(floatVal != 0) {
